@@ -1,4 +1,6 @@
-namespace Math.GaloisField2P8
+using System;
+
+namespace UnityRijndael
 {
     // 【参考】
     // GF(2^m) のベクトル表現
@@ -10,7 +12,7 @@ namespace Math.GaloisField2P8
     // リードソロモン符号
     // http://siglead.com/technology/index02.php
     // 
-    
+
     /*
      * ガロア拡大体構造体
      * この構造体はガロア体 GF(2^8) を拡大する拡大体 a の計算を扱う。
@@ -48,8 +50,9 @@ namespace Math.GaloisField2P8
      * x^11 ...  x^7 + x^6 + x^4 + x^3               ... [11011000]             216
      * x^12 ...  x^7 + x^5 + x^3 + x^1 + x^0         ... [10101011]             171
      * 桁溢れしたら(つまり8ビット目の値が1でかつ、左にシフトされ、9ビット目が1になったとき)
-     * 00011011 を 現在の値にXORをする というルールとなる。
-     * 従って x^13 の値は x^12の値(10101011)を左に1ビットシフトした段階で多項式乗ではx^8となり、桁溢れを起こすので
+     * 00011011 (原始多項式x^8 + x^4 + x^3 + x^1 + x^0) を 現在の値にXORをする というルールとなる。
+     * 
+     * 従って x^13 の値は x^12の値(10101011)を左に1ビットシフトした段階で多項式上ではx^8となり、桁溢れを起こすので
      * 00011011 を XOR することになる。
      * 10101011 << 1
      * ↓
@@ -59,7 +62,7 @@ namespace Math.GaloisField2P8
      * 01001101
      * x^13 ...  x^6 + x^3 + x^2 + x^0               ... [01001101]             134
      */
-    public readonly struct GFElement
+    public readonly struct GaloisField
     {
         /*
          * 原始多項式
@@ -72,20 +75,19 @@ namespace Math.GaloisField2P8
          * であり
          * a^8 = a^4 + a^3 + a^1 + a^0
          * と表すことができる。
-         * (GF(2) のルールにおいては
-         * 1 = -1 が成立するため、負の数は正の数として扱うことができる)
+         * (GF(2) のルールにおいては1 + 1 = 0であり、1 = -1 が成立するため、負の数は正の数として扱うことができる)
          */
         private const byte PrimitivePolynomial = 0x1b;
 
         private readonly byte _x;
-        public int x0 => _x >> 0 & 1;
-        public int x1 => _x >> 1 & 1;
-        public int x2 => _x >> 2 & 1;
-        public int x3 => _x >> 3 & 1;
-        public int x4 => _x >> 4 & 1;
-        public int x5 => _x >> 5 & 1;
-        public int x6 => _x >> 6 & 1;
-        public int x7 => _x >> 7 & 1;
+        private int X0 => _x >> 0 & 1;
+        private int X1 => _x >> 1 & 1;
+        private int X2 => _x >> 2 & 1;
+        private int X3 => _x >> 3 & 1;
+        private int X4 => _x >> 4 & 1;
+        private int X5 => _x >> 5 & 1;
+        private int X6 => _x >> 6 & 1;
+        private int X7 => _x >> 7 & 1;
 
         public int this[int index]
         {
@@ -93,35 +95,34 @@ namespace Math.GaloisField2P8
             {
                 switch (index)
                 {
-                    case 0: return x0;
-                    case 1: return x1;
-                    case 2: return x2;
-                    case 3: return x3;
-                    case 4: return x4;
-                    case 5: return x5;
-                    case 6: return x6;
-                    case 7: return x7;
+                    case 0: return X0;
+                    case 1: return X1;
+                    case 2: return X2;
+                    case 3: return X3;
+                    case 4: return X4;
+                    case 5: return X5;
+                    case 6: return X6;
+                    case 7: return X7;
                 }
 
                 throw new Exception("index は0~7までの値しか使えません");
             }
         }
 
-        public byte X => _x;
+        private byte X => _x;
 
-        public GFElement(int x)
+        public GaloisField(int x)
         {
-            _x = (byte)x;
+            _x = (byte) x;
         }
 
         /*
          * 現在の値のm乗の値を計算する
          */
-        public GFElement Pow(int m)
+        public GaloisField Pow(int m)
         {
             int source = X;
-            GFElement e = new GFElement(X);
-
+            GaloisField e = new GaloisField(X);
             for (int i = 0; i < m - 1; ++i)
             {
                 e *= source;
@@ -142,35 +143,35 @@ namespace Math.GaloisField2P8
          * また、GF(2^8) の世界における加法は1 + 1 = 0であり、XOR演算であるため、
          * 0x57 + 0x83 は実際には 0x57 ^ 0x83 であり 0xd4となる。
          */
-        public static GFElement operator +(GFElement a, GFElement b)
+        public static GaloisField operator +(GaloisField a, GaloisField b)
         {
-            return new GFElement((byte)(a.X ^ b.X));
+            return new GaloisField((byte) (a.X ^ b.X));
         }
 
         // 多項式同士を掛け算する場合
         // (x^6 + x^4 + x^2 + x^1 + x^0)(x^7 + x^1 + x^0)
         // = [x^13 + x^7 + x^6] + [x^11 + x^5 + x^4] + [x^9 + x^3 + x^2] + [x^8 + x^2 + x^1] + [x^7 + x^1 + x^0]
-        public static GFElement operator *(GFElement a, GFElement b)
+        public static GaloisField operator *(GaloisField a, GaloisField b)
         {
             return Dot(a, b);
         }
 
-        public static GFElement operator *(GFElement a, int b)
+        public static GaloisField operator *(GaloisField a, int b)
         {
-            return Dot(a, new GFElement((byte)b));
+            return Dot(a, new GaloisField((byte) b));
         }
 
-        public static implicit operator GFElement(int x)
+        public static implicit operator GaloisField(int x)
         {
-            return new GFElement((byte)x);
+            return new GaloisField((byte) x);
         }
 
-        public static implicit operator int(GFElement x)
+        public static implicit operator int(GaloisField x)
         {
             return x.X;
         }
 
-        static GFElement Dot(GFElement a, GFElement b)
+        static GaloisField Dot(GaloisField a, GaloisField b)
         {
             int Shift(int e)
             {
@@ -196,22 +197,3 @@ namespace Math.GaloisField2P8
         }
     }
 }
-
-/*
-
-57・1 
-  -> 多項式表現: (x^6 + x^4 + x^2 + x^1 + x^0)(x^0)
-  -> 0x57 << 0
-    = 57
-
-57・2
-  -> 多項式表現: 
-  -> ビット演算表現: 0x57 << 1
-
-
-0x57・0x83 = 57・(80+2+1)
-= (57・80) + (57・2) + (57・1)
-= 1010111
-
-
-*/
