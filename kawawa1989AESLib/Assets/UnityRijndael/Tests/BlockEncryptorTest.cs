@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace UnityRijndael.Tests
 {
-    public class UnityRijndaelTest
+    public class BlockEncryptorTest
     {
         /*
          * 標準ライブラリからの暗号化
@@ -188,14 +188,14 @@ namespace UnityRijndael.Tests
          * CBCモード、パディングあり、IVあり
          * 
          * 初期化ベクトルの動作確認
-         * 一番最初に暗号化するブロックの平文に対して XOR をとってからそのデータを暗号化する
+         * 一番最初に暗号化するブロックの平文に対して IV との XOR をとってからそのデータを暗号化する
          * というような使われ方をするので data と iv の XOR を行ってからそのデータを暗号化すれば
          * 同じ結果を得られるはずである。
          */
         [Test]
         public void TestIv()
         {
-            byte[] data = new byte[]
+            byte[] data = 
             {
                 0x00, 0x11, 0xcc, 0x33,
                 0x44, 0xaa, 0x77, 0x66,
@@ -203,7 +203,7 @@ namespace UnityRijndael.Tests
                 0x22, 0xdd, 0xee, 0xff,
             };
 
-            byte[] key = new byte[]
+            byte[] key = 
             {
                 0x00, 0x01, 0x02, 0x03,
                 0x04, 0x05, 0x06, 0x07,
@@ -211,7 +211,7 @@ namespace UnityRijndael.Tests
                 0x0c, 0x0d, 0x0e, 0x0f,
             };
 
-            byte[] iv = new byte[]
+            byte[] iv = 
             {
                 0x10, 0x21, 0x32, 0x43,
                 0x54, 0x65, 0x76, 0x87,
@@ -258,6 +258,72 @@ namespace UnityRijndael.Tests
 
             var answerB = answer.AsSpan(16, 16).ToArray();
             Assert.AreEqual(answerB, output);
+        }
+        
+        
+                /*
+         * CBCモード、パディングあり、IVあり
+         * 
+         * 初期化ベクトルの動作確認
+         * 一番最初に暗号化するブロックの平文に対して IV との XOR をとってからそのデータを暗号化する
+         * というような使われ方をするので data と iv の XOR を行ってからそのデータを暗号化すれば
+         * 同じ結果を得られるはずである。
+         */
+        [Test]
+        public void TestIv2()
+        {
+            byte[] data = 
+            {
+                0x00, 0x11, 0xcc, 0x33,
+                0x44, 0xaa, 0x77, 0x66,
+                0x88, 0x99, 0x55, 0xbb,
+                0x22, 0xdd, 0xee, 0xff,
+                0x00, 0x11, 0xcc, 0x33,
+                0x44, 0xaa, 0x77, 0x66,
+                0x88, 0x99, 0x55, 0xbb,
+                0x22, 0xdd, 0xee, 0xff,
+                0x44, 0xaa, 0x77, 0x66,
+                0x88, 0x99, 0x55, 0xbb,
+                0x22, 0xdd, 0xee, 0xff,
+            };
+
+            byte[] key = 
+            {
+                0x00, 0x01, 0x02, 0x03,
+                0x04, 0x05, 0x06, 0x07,
+                0x08, 0x09, 0x0a, 0x0b,
+                0x0c, 0x0d, 0x0e, 0x0f,
+            };
+
+            byte[] iv = 
+            {
+                0x10, 0x21, 0x32, 0x43,
+                0x54, 0x65, 0x76, 0x87,
+                0x98, 0xA9, 0xBA, 0xCB,
+                0xDC, 0xED, 0xFE, 0x0F,
+            };
+
+            var log = new StringBuilder();
+            var answer = EncryptByDefault(key, iv, CipherMode.CBC, PaddingMode.PKCS7, data, log);
+            
+            Encryptor encryptor = new Encryptor(key, iv);
+            using (MemoryStream outputStream = new())
+            {
+                using (MemoryStream inputStream = new(data))
+                {
+                    encryptor.Encrypt(inputStream, outputStream);
+                    log.AppendLine("--- Encrypted by UnityRijndael ---");
+                    var result = outputStream.ToArray();
+
+                    for (int i = 0; i < result.Length / 16; ++i)
+                    {
+                        var matrix = new Matrix(result.AsSpan(i * 16, 16));
+                        log.AppendLine(matrix.ToString());
+                    }
+                }
+            }
+
+            Debug.Log(log.ToString());
         }
     }
 }

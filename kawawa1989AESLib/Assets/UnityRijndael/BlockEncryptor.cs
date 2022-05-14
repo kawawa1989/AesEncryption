@@ -8,7 +8,8 @@ namespace UnityRijndael
     public class BlockEncryptor
     {
         private const int ROUND_COUNT = 10;
-        private const int Nb = 4;
+        private const int NB = 4;
+        public const int BLOCK_SIZE = NB * 4;
 
         // ラウンド定数
         private static readonly byte[] s_roundConstant =
@@ -26,7 +27,7 @@ namespace UnityRijndael
             0x00000036
         };
 
-        private readonly List<Matrix> m_roundKeys = new();
+        private readonly List<Matrix> m_roundKeys = new(ROUND_COUNT + 1);
         private readonly StringBuilder m_logger;
 
         public override string ToString()
@@ -40,9 +41,13 @@ namespace UnityRijndael
             ResetRoundKeys(key);
         }
 
-        private void ResetRoundKeys(byte[] key)
+        /*
+         * 各ラウンドで使用される鍵を生成する。
+         */
+        public void ResetRoundKeys(byte[] key)
         {
             m_logger?.AppendLine("----RoundKey初期化----");
+            m_roundKeys.Clear();
             // 初期ラウンドの鍵
             m_roundKeys.Add(new Matrix(key));
             for (int round = 1; round <= ROUND_COUNT; ++round)
@@ -80,7 +85,7 @@ namespace UnityRijndael
         // input と outputのサイズは16バイトである想定
         public void Encrypt(Span<byte> input, Span<byte> output)
         {
-            Span<byte> state = stackalloc byte[16];
+            Span<byte> state = stackalloc byte[BLOCK_SIZE];
             input.CopyTo(state);
             
             AddRoundKey(state, 0);
@@ -97,7 +102,7 @@ namespace UnityRijndael
             ShiftRows(state);
 
             // 最終ラウンド
-            AddRoundKey(state, 10);
+            AddRoundKey(state, ROUND_COUNT);
             state.CopyTo(output);
         }
 
